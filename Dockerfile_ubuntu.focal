@@ -1,0 +1,154 @@
+FROM ubuntu:20.04
+
+ENV DEBIAN_FRONTEND=noninteractive
+ENV TZ=america/los_angeles
+
+# install packages
+RUN DEBIAN_FRONTEND=noninteractive apt-get update && \
+    apt-get install --no-install-recommends -q -y \
+    autoconf \
+    automake \
+    autopoint \
+    bc \
+    bison \
+    bzip2 \
+    clang \
+    cmake \
+    debianutils \
+    diffutils \
+    expat \
+    file \
+    findutils \
+    flex \
+    g++ \
+    gawk \
+    gcc \
+    gettext \
+    git-core \
+    libbsd-dev \
+    libclang-dev \
+    libdrm-dev \
+    libedit-dev \
+    libegl1-mesa-dev \
+    libexpat1-dev \
+    libflac-dev \
+    libgl1-mesa-dev \
+    libgles2-mesa-dev \
+    libglib2.0-dev \
+    libgudev-1.0-dev \
+    libjson-glib-dev \
+    libmp3lame-dev \
+    libopencv-dev \
+    libopenscenegraph-dev \
+    liborc-0.4-dev \
+    libpango1.0-dev \
+    libpciaccess-dev \
+    libpython3-dev \
+    libtheora-dev \
+    libtool \
+    libudev-dev \
+    libv4l-dev \
+    libvorbis-dev \
+    libvulkan-dev \
+    libwayland-dev \
+    libx11-dev \
+    libx11-xcb-dev \
+    libxcb-dri2-0-dev \
+    libxcb-glx0-dev \
+    libxcb-xfixes0-dev \
+    libxdamage-dev \
+    libxext-dev \
+    libxfixes-dev \
+    libxrandr-dev \
+    libxrender-dev \
+    libxshmfence-dev \
+    libx264-dev \
+    libx265-dev \
+    libva-dev \
+    llvm-dev \
+    make \
+    nasm \
+    ocl-icd-dev \
+    ocl-icd-opencl-dev \
+    opencl-headers \
+    passwd \
+    patch \
+    pkg-config \
+    python3 \
+    python3-pip \
+    sudo \
+    software-properties-common \
+    x11proto-dri2-dev \
+    x11proto-gl-dev \
+    xutils-dev \
+    xz-utils \
+    yasm \
+  && pip3 install \
+    attr \
+    bd-metric \
+    distro \
+    lxml \
+    meson \
+    ninja 
+
+WORKDIR /build
+RUN mkdir -p build/src
+
+
+# Install oneVPL and oneVPL GPU drivers from Agama and oneAPI
+#-----------------------
+RUN apt-get update -y && apt-get install -y --no-install-recommends software-properties-common ca-certificates gnupg wget && \
+    wget -qO - https://apt.repos.intel.com/intel-gpg-keys/GPG-PUB-KEY-INTEL-SW-PRODUCTS-2023.PUB | apt-key add - && \
+    wget -qO - https://repositories.intel.com/graphics/intel-graphics.key | apt-key add - && \
+    add-apt-repository "deb https://apt.repos.intel.com/oneapi all main" && \
+    add-apt-repository "deb [arch=amd64] https://repositories.intel.com/graphics/ubuntu focal main" && \
+    apt-get update && \
+    apt-get install -y intel-opencl-icd intel-media-va-driver-non-free libmfx1 intel-oneapi-onevpl-devel
+
+ENV CMAKE_PREFIX_PATH=/opt/intel/oneapi/vpl
+ENV CPATH=/opt/intel/oneapi/vpl/2021.2.2/include
+ENV LD_LIBRARY_PATH=/opt/intel/oneapi/vpl/2021.2.2/lib:${LD_LIBRARY_PATH}
+ENV LIBRARY_PATH=/opt/intel/oneapi/vpl/2021.2.2/lib:${LIBRARY_PATH}
+ENV PATH=/opt/intel/oneapi/vpl/2021.2.2/bin:${PATH}
+ENV PKG_CONFIG_PATH=/opt/intel/oneapi/vpl/2021.2.2/lib/pkgconfig:${PKG_CONFIG_PATH}
+ENV VPL_BIN=/opt/intel/oneapi/vpl/2021.2.2/bin
+ENV VPL_INCLUDE=/opt/intel/oneapi/vpl/2021.2.2/include
+ENV VPL_LIB=/opt/intel/oneapi/vpl/2021.2.2/lib
+ENV VPL_ROOT=/opt/intel/oneapi/vpl/2021.2.2
+ENV ONEAPI_ROOT=/opt/intel/oneapi
+ENV LIBVA_DRIVER_NAME=iHD
+
+# Workaround for meson
+COPY vpl.pc /opt/intel/oneapi/vpl/2021.2.2/lib/pkgconfig/vpl.pc
+
+
+# FFmpeg 
+#-----------------------
+RUN git clone --depth=1 https://github.com/intel-media-ci/cartwheel-ffmpeg --recursive && \
+    cd cartwheel-ffmpeg/ffmpeg && \
+    git config --global user.email "dev@example.com" && \
+    git config --global user.name "dev" && \
+    git checkout -b dev && \
+    git am ../patches/*.patch && \
+    cd .. && \
+    git pull --rebase --recurse-submodule && \
+    cd ffmpeg && \
+    export PKG_CONFIG_PATH=/usr/lib/pkgconfig:${PKG_CONFIG_PATH} && \
+    ./configure \
+            --cpu=native \
+            --extra-libs=-lpthread \
+            --disable-cuda-llvm \
+            --prefix=/usr \
+            --enable-static \
+            --disable-shared \
+            --enable-pic  \
+            --disable-doc \
+            --disable-manpages  \
+            --enable-vaapi \
+            --enable-libvpl \
+            --enable-gpl \
+            --enable-nonfree \
+            --enable-libxcb && \
+   make -j $(nproc) && \
+   make install
+
