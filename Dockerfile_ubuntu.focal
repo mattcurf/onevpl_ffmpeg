@@ -125,7 +125,7 @@ COPY vpl.pc /opt/intel/oneapi/vpl/2021.2.2/lib/pkgconfig/vpl.pc
 
 # FFmpeg 
 #-----------------------
-ARG COMMIT_ID=68cc595f8fb7dc6b5f4b9333ced135a87a83e8c3
+#ARG COMMIT_ID=68cc595f8fb7dc6b5f4b9333ced135a87a83e8c3
 RUN mkdir -p build/src && \
     git clone --depth=1 https://github.com/intel-media-ci/cartwheel-ffmpeg --recursive && \
     cd cartwheel-ffmpeg && \
